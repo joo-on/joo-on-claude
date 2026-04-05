@@ -1,0 +1,20 @@
+{
+  "name": "joo-on-claude",
+  "owner": {
+    "name": "joo-on"
+  },
+  "metadata": {
+    "description": "Personal Claude Code toolkit — HUD statusline and more",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "joo-on-claude",
+      "source": "./",
+      "description": "Personal Claude Code toolkit — HUD statusline, hooks, and workflows",
+      "version": "0.1.0",
+      "keywords": ["hud", "statusline", "personal"],
+      "category": "productivity"
+    }
+  ]
+}
