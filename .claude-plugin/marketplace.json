@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Personal Claude Code toolkit — HUD statusline and more",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "plugins": [
     {
       "name": "joo-on-claude",
       "source": "./",
       "description": "Personal Claude Code toolkit — HUD statusline, hooks, and workflows",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "keywords": ["hud", "statusline", "personal"],
       "category": "productivity"
     }
