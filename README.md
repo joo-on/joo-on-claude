@@ -45,7 +45,7 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 | `/joo-on-claude:code-quality [target]` | 9차원 코드 품질 리포트 (Explore 4개 병렬, `quality-YYYYMMDD.md` 생성) |
 | `/joo-on-claude:code-explore [target]` | 3-5개 병렬 Explore로 구조·의존성·테스트 딥다이브 (`code-<slug>-<ts>.md` 생성) |
 | `/joo-on-claude:merge-permissions [apply]` | `settings.local.json` → `~/.claude/settings.json` 병합 (기본 dry-run, widening 경고, 자동 백업, deny-union-only) |
-| `save-conversation` | 대화 요약을 `conv-logs/YYYYMM/DD/conv-TS.md`에 저장 (세션 내 증분 저장, 월별 prompt 로그). 트리거: "save conv", "대화 저장" 등 |
+| `save-conversation` | 대화 요약을 `conv-logs/YYYYMM/DD/conv-TS.md`에 저장 (세션 내 증분 저장, 저장-간 경과시간 기록, 영문 템플릿). 트리거: "save conv", "대화 저장" 등 |
 
 ## Safety Hooks
 
