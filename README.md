@@ -38,13 +38,23 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 | `/joo-on-claude:hud status` | 현재 HUD 상태 확인 |
 | `/joo-on-claude:hud remove` | HUD 제거 및 원복 |
 
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| `/joo-on-claude:code-quality [target]` | 9차원 코드 품질 리포트 (Explore 4개 병렬, `quality-YYYYMMDD.md` 생성) |
+| `/joo-on-claude:code-explore [target]` | 3-5개 병렬 Explore로 구조·의존성·테스트 딥다이브 (`code-<slug>-<ts>.md` 생성) |
+| `/joo-on-claude:merge-permissions [apply]` | `settings.local.json` → `~/.claude/settings.json` 병합 (기본 dry-run, widening 경고, 자동 백업, deny-union-only) |
+| `save-conversation` | 대화 요약을 `conv-logs/YYYYMM/DD/conv-TS.md`에 저장 (세션 내 증분 저장, 월별 prompt 로그). 트리거: "save conv", "대화 저장" 등 |
+
 ## Safety Hooks
 
-플러그인 설치 시 두 개의 `PreToolUse` 훅이 자동 등록됩니다.
+플러그인 설치 시 세 개의 `PreToolUse` 훅이 자동 등록됩니다.
 
 | Hook | Matcher | 역할 |
 |------|---------|------|
-| `block-dangerous-bash.sh`  | `Bash`        | `rm -rf`/`curl \| sh`/`chmod 777`/`git push --force` 등 파괴적·자격증명 유출 명령 차단 |
+| `block-dangerous-bash.sh`  | `Bash`        | `rm -rf`/`curl \| sh`/`chmod 777`/`git push --force`·`--mirror` 등 파괴적·자격증명 유출 명령 차단 |
+| `save-conv-before-commit.sh` | `Bash` (체인) | `git commit` 가로채기 — 프로젝트에 `conv-logs/` 있을 때만 활성화(opt-in). 3분 이내 대화 로그가 스테이지 안 돼 있으면 커밋 거절 |
 | `block-dangerous-write.sh` | `Write\|Edit` | 세 계층 정책으로 파일 쓰기 검증 (아래 참조) |
 
 ### Write 훅의 3계층 정책
