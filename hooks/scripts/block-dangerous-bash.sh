@@ -96,10 +96,17 @@ if echo "$COMMAND" | grep -qE '\b(dd\s+.*of=/dev/|mkfs\.|fdisk|diskutil\s+(erase
 fi
 
 # ─────────────────────────────────────────────
-# 7. git force push 차단
+# 7. git 위험 연산 차단
+#    - push --force (단, --force-with-lease 는 허용)
+#    - push --mirror (원격 전체 덮어쓰기)
 # ─────────────────────────────────────────────
-if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force'; then
+# --force 뒤에 공백 또는 EOL 이 오는 경우만 매칭 → --force-with-lease 는 통과
+if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force($|[[:space:]])'; then
   echo "BLOCKED: git push --force is not allowed — use --force-with-lease" >&2
+  exit 2
+fi
+if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--mirror\b'; then
+  echo "BLOCKED: git push --mirror overwrites all remote refs — specify branches explicitly" >&2
   exit 2
 fi
 
