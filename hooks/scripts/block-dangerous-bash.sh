@@ -1,4 +1,22 @@
 #!/bin/bash
+# ─────────────────────────────────────────────────────────────
+# block-dangerous-bash.sh — Claude Code PreToolUse hook
+#
+# Matcher: "Bash" (see hooks/hooks.json).
+# Reads tool_input.command from stdin JSON and rejects destructive
+# or credential-leaking shell patterns before execution.
+#
+# Rejected patterns (exit 2):
+#   - rm -rf outside the project (direct, or via bash -c / eval)
+#   - rm targeting critical system paths (/etc, /usr, /var, /System, ...)
+#   - curl|wget piped to a shell
+#   - chmod 777 (with or without -R)
+#   - direct disk writes (dd of=/dev/*, mkfs.*, fdisk, diskutil erase)
+#   - git push --force (use --force-with-lease)
+#   - env/printenv piped to curl|wget|nc (credential exfiltration)
+#
+# Exit codes: 0 = allow · 2 = block (stderr is fed back to the model)
+# ─────────────────────────────────────────────────────────────
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
 

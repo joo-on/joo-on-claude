@@ -1,60 +1,123 @@
 #!/bin/bash
+# ─────────────────────────────────────────────────────────────
+# block-dangerous-write.sh — Claude Code PreToolUse hook
+#
+# Matcher: "Write|Edit" (see hooks/hooks.json).
+# Reads tool_input.file_path from stdin JSON and applies a
+# three-tier policy.
+#
+# Tier 1 — HARD BLOCK (never overridable):
+#   .env* files, credentials/secret/token/password/apikey.*
+#   ~/.ssh/id_*, ~/.ssh/authorized_keys, ~/.ssh/known_hosts
+#   ~/.aws/credentials, ~/.gcloud/**, ~/.kube/config, ~/.gnupg/**
+#
+# Tier 2 — DEFAULT BLOCK, overridable via project allowlist:
+#   system paths (/etc, /usr, /System, /Library, /bin, /sbin,
+#                 /var, /tmp, /private)
+#   ~/.ssh/config, ~/.aws/config
+#   any path outside the current project directory
+#
+# Tier 3 — ALWAYS ALLOW:
+#   inside the current project directory
+#   inside ~/.claude/
+#
+# Project opt-in (Tier 2 override only):
+#   <project>/.claude/hook-write-allowlist — one glob per line.
+#   Supports leading ~ expansion; `#` starts a comment.
+#   Matching patterns bypass Tier 2 but NEVER Tier 1.
+#
+# Exit codes: 0 = allow · 2 = block (stderr is fed back to the model)
+# ─────────────────────────────────────────────────────────────
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
-
 [ -z "$FILE_PATH" ] && exit 0
 
-# ─────────────────────────────────────────────
-# 1. 시스템 경로에 파일 쓰기 차단
-#    /etc, /usr, /System, /Library, /bin, /sbin 등
-# ─────────────────────────────────────────────
-if echo "$FILE_PATH" | grep -qE '^/(etc|usr|System|Library|bin|sbin|var|tmp|private)/'; then
-  echo "BLOCKED: Writing to system path is not allowed ($FILE_PATH)" >&2
-  exit 2
-fi
-
-# ─────────────────────────────────────────────
-# 2. 민감한 자격 증명 파일 덮어쓰기 차단
-#    .env, credentials, 키 파일, AWS/GCP/SSH 설정
-# ─────────────────────────────────────────────
-FILENAME=$(basename "$FILE_PATH")
-if echo "$FILENAME" | grep -qiE '^\.(env|env\..+)$'; then
-  echo "BLOCKED: Writing to environment file is not allowed ($FILENAME)" >&2
-  exit 2
-fi
-if echo "$FILENAME" | grep -qiE '(credentials|secret|token|password|apikey)\.(json|yaml|yml|toml|xml|txt|cfg|ini)$'; then
-  echo "BLOCKED: Writing to credentials file is not allowed ($FILENAME)" >&2
-  exit 2
-fi
-if echo "$FILE_PATH" | grep -qE '(\.ssh/(id_|authorized_keys|known_hosts|config)|\.aws/(credentials|config)|\.gcloud/|\.kube/config|\.gnupg/)'; then
-  echo "BLOCKED: Writing to sensitive config path is not allowed ($FILE_PATH)" >&2
-  exit 2
-fi
-
-# ─────────────────────────────────────────────
-# 3. 프로젝트 외부 경로에 파일 쓰기 경고
-#    절대 경로가 프로젝트 디렉토리 밖이면 차단
-#    (홈 디렉토리의 dotfiles 수정도 방지)
-# ─────────────────────────────────────────────
 PROJECT_DIR=$(pwd)
+CLAUDE_DIR="$HOME/.claude"
+ALLOWLIST_FILE="$PROJECT_DIR/.claude/hook-write-allowlist"
+
+# Normalize to absolute path
 if [[ "$FILE_PATH" = /* ]]; then
   ABS_PATH="$FILE_PATH"
 else
   ABS_PATH="$PROJECT_DIR/$FILE_PATH"
 fi
 ABS_PATH=$(python3 -c "import os,sys; print(os.path.normpath(sys.argv[1]))" "$ABS_PATH")
+FILENAME=$(basename "$ABS_PATH")
 
-# ~/.claude/ 하위는 Claude Code 작업 공간이므로 허용
-# (스킬, 플랜, 메모리, 설정 등 — 민감 경로는 섹션 1,2에서 이미 차단됨)
-CLAUDE_DIR="$HOME/.claude"
+# ─────────────────────────────────────────────
+# Tier 1 — HARD BLOCK (never overridable)
+# ─────────────────────────────────────────────
+
+# .env* files (e.g. .env, .env.production)
+if echo "$FILENAME" | grep -qiE '^\.env(\.|$)'; then
+  echo "BLOCKED [Tier 1]: Writing to environment file is not allowed ($FILENAME)" >&2
+  exit 2
+fi
+
+# Credential-like filenames (matches also 'my-credentials.yaml')
+if echo "$FILENAME" | grep -qiE '(credentials|secret|token|password|apikey)\.(json|yaml|yml|toml|xml|txt|cfg|ini)$'; then
+  echo "BLOCKED [Tier 1]: Writing to credentials file is not allowed ($FILENAME)" >&2
+  exit 2
+fi
+
+# Private keys & authoritative credential paths (cannot be allowlisted)
+if echo "$ABS_PATH" | grep -qE '(\.ssh/(id_|authorized_keys|known_hosts)|\.aws/credentials|\.gcloud/|\.kube/config|\.gnupg/)'; then
+  echo "BLOCKED [Tier 1]: Writing to secret credentials/key path is not allowed ($ABS_PATH)" >&2
+  exit 2
+fi
+
+# ─────────────────────────────────────────────
+# Tier 3 — ALWAYS ALLOW
+# ─────────────────────────────────────────────
+
+# Inside project directory
+if [[ "$ABS_PATH" == "$PROJECT_DIR"/* ]]; then
+  exit 0
+fi
+
+# Inside ~/.claude/ (Claude workspace — plans, skills, memory, settings)
 if [[ "$ABS_PATH" == "$CLAUDE_DIR"/* ]]; then
   exit 0
 fi
 
-# 프로젝트 디렉토리 내부가 아니면 차단
-if [[ "$ABS_PATH" != "$PROJECT_DIR"/* ]]; then
-  echo "BLOCKED: Writing outside project directory ($ABS_PATH not under $PROJECT_DIR)" >&2
+# ─────────────────────────────────────────────
+# Tier 2 override — project allowlist
+# ─────────────────────────────────────────────
+
+if [ -f "$ALLOWLIST_FILE" ]; then
+  while IFS= read -r PATTERN || [ -n "$PATTERN" ]; do
+    # Strip comments and surrounding whitespace
+    PATTERN="${PATTERN%%#*}"
+    PATTERN="${PATTERN#"${PATTERN%%[![:space:]]*}"}"
+    PATTERN="${PATTERN%"${PATTERN##*[![:space:]]}"}"
+    [ -z "$PATTERN" ] && continue
+    # Expand leading ~ to $HOME
+    EXPANDED="${PATTERN/#\~/$HOME}"
+    # Unquoted $EXPANDED → bash pattern matching
+    if [[ "$ABS_PATH" == $EXPANDED ]]; then
+      exit 0
+    fi
+  done < "$ALLOWLIST_FILE"
+fi
+
+# ─────────────────────────────────────────────
+# Tier 2 defaults — block with guidance toward the allowlist
+# ─────────────────────────────────────────────
+
+if echo "$ABS_PATH" | grep -qE '^/(etc|usr|System|Library|bin|sbin|var|tmp|private)/'; then
+  echo "BLOCKED [Tier 2]: Writing to system path ($ABS_PATH)" >&2
+  echo "  → To allow, add a glob pattern to $ALLOWLIST_FILE" >&2
   exit 2
 fi
 
-exit 0
+if echo "$ABS_PATH" | grep -qE '(\.ssh/config$|\.aws/config$)'; then
+  echo "BLOCKED [Tier 2]: Writing to sensitive config path ($ABS_PATH)" >&2
+  echo "  → To allow, add a glob pattern to $ALLOWLIST_FILE" >&2
+  exit 2
+fi
+
+# Outside project directory (catch-all)
+echo "BLOCKED [Tier 2]: Writing outside project directory ($ABS_PATH not under $PROJECT_DIR)" >&2
+echo "  → To allow, add a glob pattern to $ALLOWLIST_FILE" >&2
+exit 2
