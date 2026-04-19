@@ -1,7 +1,7 @@
 {
   "name": "joo-on-claude",
   "description": "Personal Claude Code toolkit — HUD statusline, hooks, and workflows",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": {
     "name": "joo-on"
   },

@@ -95,4 +95,7 @@ Tier 2를 풀고 싶은 프로젝트는 루트에 다음 파일을 둡니다:
 
 ## License
 
-MIT
+MIT. See [`LICENSE`](LICENSE).
+
+Portions derived from third-party MIT-licensed projects — see
+[`NOTICES.md`](NOTICES.md) for attribution.
