@@ -32,7 +32,20 @@ INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
 [ -z "$FILE_PATH" ] && exit 0
 
-PROJECT_DIR=$(pwd)
+# ─────────────────────────────────────────────
+# Resolve PROJECT_DIR:
+#   1. JSON `cwd` from hook payload (most accurate — the session's CWD)
+#   2. shell `pwd` as fallback
+#   3. Promote to the enclosing git repo root if available.
+#      This way a Write from inside a subdirectory still treats the
+#      whole repo as "inside the project" (Tier 3), and the allowlist
+#      at <repo-root>/.claude/hook-write-allowlist is found regardless
+#      of which subdir Claude is cd'd into.
+# ─────────────────────────────────────────────
+PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // ""')
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
+PROJECT_DIR=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_DIR")
+
 CLAUDE_DIR="$HOME/.claude"
 ALLOWLIST_FILE="$PROJECT_DIR/.claude/hook-write-allowlist"
 

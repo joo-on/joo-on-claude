@@ -64,6 +64,8 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 - **Tier 2 — 기본 차단, 프로젝트 opt-in으로 해제 가능:** 시스템 경로(`/etc`, `/usr`, `/System`, `/Library`, `/bin`, `/sbin`, `/var`, `/tmp`, `/private`), `~/.ssh/config`, `~/.aws/config`, 프로젝트 디렉토리 외부
 - **Tier 3 — 항상 허용:** 프로젝트 내부, `~/.claude/`
 
+"프로젝트 내부"는 `git rev-parse --show-toplevel` 결과(리포 루트)로 판정합니다. 그래서 Claude가 서브디렉토리에 `cd` 한 상태에서 리포 루트 파일을 수정해도 정상적으로 Tier 3로 허용됩니다. git 레포가 아니면 hook payload의 `cwd`(fallback: 셸 `pwd`)를 그대로 사용.
+
 ### 프로젝트별 허용 목록
 
 Tier 2를 풀고 싶은 프로젝트는 루트에 다음 파일을 둡니다:
