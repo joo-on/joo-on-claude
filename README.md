@@ -46,6 +46,7 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 | `/joo-on-claude:code-explore [target]` | 3-5개 병렬 Explore로 구조·의존성·테스트 딥다이브 (`code-<slug>-<ts>.md` 생성) |
 | `/joo-on-claude:merge-permissions [apply]` | `settings.local.json` → `~/.claude/settings.json` 병합 (기본 dry-run, widening 경고, 자동 백업, deny-union-only) |
 | `save-conversation` | 대화 요약을 `conv-logs/YYYYMM/DD/conv-TS.md`에 저장 (세션 내 증분 저장, 저장-간 경과시간 기록, 영문 템플릿). 트리거: "save conv", "대화 저장" 등 |
+| `tdd-team` | 3-에이전트 Red-Green-Refactor TDD 오케스트레이션 (각 사이클 순차 Agent 호출, 태스크 분해 → 사용자 체크포인트). 트리거: "TDD 시작", "start TDD", "테스트 먼저 작성" 등 |
 
 ## Safety Hooks
 
