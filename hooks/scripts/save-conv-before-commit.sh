@@ -34,10 +34,11 @@ if ! echo "$COMMAND" | grep -qE '(^|\&\&|;|\|)\s*git\s+commit(\s|$)'; then
   exit 0
 fi
 
-PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // ""')
-if [ -z "$PROJECT_DIR" ]; then
-  PROJECT_DIR=$(pwd)
-fi
+# Prefer $CLAUDE_PROJECT_DIR (immutable session anchor) over the payload
+# `cwd` (which can drift if the session CWD changes mid-conversation).
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // ""')
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
 
 # Resolve the git repo root — conv-logs always lives there.
 PROJECT_ROOT=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_DIR")

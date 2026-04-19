@@ -64,7 +64,14 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 - **Tier 2 — 기본 차단, 프로젝트 opt-in으로 해제 가능:** 시스템 경로(`/etc`, `/usr`, `/System`, `/Library`, `/bin`, `/sbin`, `/var`, `/tmp`, `/private`), `~/.ssh/config`, `~/.aws/config`, 프로젝트 디렉토리 외부
 - **Tier 3 — 항상 허용:** 프로젝트 내부, `~/.claude/`
 
-"프로젝트 내부"는 `git rev-parse --show-toplevel` 결과(리포 루트)로 판정합니다. 그래서 Claude가 서브디렉토리에 `cd` 한 상태에서 리포 루트 파일을 수정해도 정상적으로 Tier 3로 허용됩니다. git 레포가 아니면 hook payload의 `cwd`(fallback: 셸 `pwd`)를 그대로 사용.
+"프로젝트 내부"는 다음 4단 우선순위로 판정합니다:
+
+1. `$CLAUDE_PROJECT_DIR` — Claude Code가 세션 launch 시점에 고정한 immutable anchor
+2. 훅 페이로드의 JSON `cwd`
+3. 셸 `pwd`
+4. 위 결과에서 `git rev-parse --show-toplevel`로 리포 루트로 승격
+
+`$CLAUDE_PROJECT_DIR`를 최우선으로 두는 이유는 페이로드의 `cwd`가 세션 도중 드리프트할 수 있는 반면 env var는 변하지 않기 때문입니다. 서브디렉토리에서 Claude Code를 launch 했더라도 git rev-parse 승격으로 리포 전체가 Tier 3가 됩니다.
 
 ### 프로젝트별 허용 목록
 

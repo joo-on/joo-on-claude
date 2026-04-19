@@ -34,15 +34,20 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
 
 # ─────────────────────────────────────────────
 # Resolve PROJECT_DIR:
-#   1. JSON `cwd` from hook payload (most accurate — the session's CWD)
-#   2. shell `pwd` as fallback
-#   3. Promote to the enclosing git repo root if available.
-#      This way a Write from inside a subdirectory still treats the
-#      whole repo as "inside the project" (Tier 3), and the allowlist
-#      at <repo-root>/.claude/hook-write-allowlist is found regardless
-#      of which subdir Claude is cd'd into.
+#   1. $CLAUDE_PROJECT_DIR — immutable session launch directory.
+#      Preferred anchor because the payload `cwd` is dynamic and can
+#      drift if the session CWD changes during the conversation.
+#   2. JSON `cwd` from hook payload.
+#   3. shell `pwd` as last-resort fallback.
+#   4. Promote to the enclosing git repo root if available.
+#      Covers the case where Claude Code was launched from a
+#      subdirectory of the repo — we still want the allowlist at
+#      <repo-root>/.claude/hook-write-allowlist to be honored, and
+#      any file inside the repo to be treated as "inside the project"
+#      (Tier 3) regardless of which subdir the session started in.
 # ─────────────────────────────────────────────
-PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // ""')
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(echo "$INPUT" | jq -r '.cwd // ""')
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
 PROJECT_DIR=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_DIR")
 
