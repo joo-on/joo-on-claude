@@ -6,14 +6,14 @@ Personal Claude Code plugin — HUD statusline and more.
 
 ### HUD (Statusline)
 
-OMC 수준의 2줄 상태줄을 제공합니다.
+A two-line statusline inspired by OMC.
 
-**Line 1** — 세션 메타 정보:
+**Line 1** — session metadata:
 ```
 ~/w/mac-cfg (main) [Opus] ▓▓▓▓░░░░░░ 42% $1.23 ⚡23%(1h30m) 14:30
 ```
 
-**Line 2** — 실시간 활동 (정보가 있을 때만):
+**Line 2** — live activity (shown only when there is something to show):
 ```
 tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 ```
@@ -34,68 +34,58 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 
 | Command | Description |
 |---------|-------------|
-| `/joo-on-claude:hud setup` | HUD 설치 및 설정 |
-| `/joo-on-claude:hud status` | 현재 HUD 상태 확인 |
-| `/joo-on-claude:hud remove` | HUD 제거 및 원복 |
+| `/joo-on-claude:hud setup` | Install and configure the HUD |
+| `/joo-on-claude:hud status` | Show current HUD status |
+| `/joo-on-claude:hud remove` | Remove the HUD and restore the original statusline |
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| `/joo-on-claude:code-quality [target]` | 9차원 코드 품질 리포트 (Explore 4개 병렬, `quality-YYYYMMDD.md` 생성) |
-| `/joo-on-claude:code-explore [target]` | 3-5개 병렬 Explore로 구조·의존성·테스트 딥다이브 (`code-<slug>-<ts>.md` 생성) |
-| `/joo-on-claude:merge-permissions [apply]` | `settings.local.json` → `~/.claude/settings.json` 병합 (기본 dry-run, widening 경고, 자동 백업, deny-union-only) |
-| `save-conversation` | 대화 요약을 `conv-logs/YYYYMM/DD/conv-TS.md`에 저장 (세션 내 증분 저장, 저장-간 경과시간 기록, 영문 템플릿). 트리거: "save conv", "대화 저장" 등 |
-| `tdd-team` | 3-에이전트 Red-Green-Refactor TDD 오케스트레이션 (각 사이클 순차 Agent 호출, 태스크 분해 → 사용자 체크포인트). 트리거: "TDD 시작", "start TDD", "테스트 먼저 작성" 등 |
+| `/joo-on-claude:code-quality [target]` | 9-dimension code-quality report (4 parallel Explores, writes `quality-YYYYMMDD.md`) |
+| `/joo-on-claude:code-explore [target]` | Deep dive into structure, dependencies, and tests via 3–5 parallel Explores (writes `code-<slug>-<ts>.md`) |
+| `/joo-on-claude:merge-permissions [apply]` | Merge `settings.local.json` into `~/.claude/settings.json` (dry-run by default; warns on widening; auto-backup; deny rules are union-only) |
+| `save-conversation` | Save a conversation summary to `conv-logs/YYYYMM/DD/conv-TS.md`. Per-session incremental saves, records elapsed time between saves, English template. Triggers: "save conv", "대화 저장", etc. |
+| `tdd-team` | 3-agent Red-Green-Refactor TDD orchestration. Sequential agent calls per cycle, task breakdown → user checkpoints. Triggers: "start TDD", "TDD 시작", "test first", etc. |
 
 ## Safety Hooks
 
-플러그인 설치 시 세 개의 `PreToolUse` 훅이 자동 등록됩니다.
+Three `PreToolUse` hooks are registered automatically when the plugin is installed.
 
-| Hook | Matcher | 역할 |
+| Hook | Matcher | Role |
 |------|---------|------|
-| `block-dangerous-bash.sh`  | `Bash`        | `rm -rf`/`curl \| sh`/`chmod 777`/`git push --force`·`--mirror` 등 파괴적·자격증명 유출 명령 차단 |
-| `save-conv-before-commit.sh` | `Bash` (체인) | `git commit` 가로채기 — 프로젝트에 `conv-logs/` 있을 때만 활성화(opt-in). 3분 이내 대화 로그가 스테이지 안 돼 있으면 커밋 거절 |
-| `block-dangerous-write.sh` | `Write\|Edit` | 세 계층 정책으로 파일 쓰기 검증 (아래 참조) |
+| `block-dangerous-bash.sh`    | `Bash`         | Blocks destructive or credential-leaking commands such as `rm -rf`, `curl \| sh`, `chmod 777`, `git push --force` / `--mirror` |
+| `save-conv-before-commit.sh` | `Bash` (chain) | Intercepts `git commit`. Active only when the project has a `conv-logs/` directory (opt-in). Rejects the commit if no conversation log from the last 3 minutes is staged. |
+| `block-dangerous-write.sh`   | `Write\|Edit`  | Validates file writes via a three-tier policy (see below) |
 
-### Write 훅의 3계층 정책
+### Write hook — three-tier policy
 
-- **Tier 1 — 절대 차단 (해제 불가):** `.env*`, `credentials/secret/token/password/apikey.*`, `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `~/.gcloud/`, `~/.kube/config`, `~/.gnupg/`
-- **Tier 2 — 기본 차단, 프로젝트 opt-in으로 해제 가능:** 시스템 경로(`/etc`, `/usr`, `/System`, `/Library`, `/bin`, `/sbin`, `/var`, `/tmp`, `/private`), `~/.ssh/config`, `~/.aws/config`, 프로젝트 디렉토리 외부
-- **Tier 3 — 항상 허용:** 프로젝트 내부, `~/.claude/`
+- **Tier 1 — always blocked (cannot be overridden):** `.env*`, `credentials/secret/token/password/apikey.*`, `~/.ssh/id_*`, `~/.ssh/authorized_keys`, `~/.ssh/known_hosts`, `~/.aws/credentials`, `~/.gcloud/`, `~/.kube/config`, `~/.gnupg/`
+- **Tier 2 — blocked by default, can be opted in per project:** system paths (`/etc`, `/usr`, `/System`, `/Library`, `/bin`, `/sbin`, `/var`, `/tmp`, `/private`), `~/.ssh/config`, `~/.aws/config`, anything outside the project directory
+- **Tier 3 — always allowed:** inside the project, and `~/.claude/`
 
-"프로젝트 내부"는 다음 4단 우선순위로 판정합니다:
+"Inside the project" is auto-detected from `$CLAUDE_PROJECT_DIR`, with fallbacks to the hook payload's `cwd`, the shell's `pwd`, and a `git rev-parse --show-toplevel` promotion to the repo root.
 
-1. `$CLAUDE_PROJECT_DIR` — Claude Code가 세션 launch 시점에 고정한 immutable anchor
-2. 훅 페이로드의 JSON `cwd`
-3. 셸 `pwd`
-4. 위 결과에서 `git rev-parse --show-toplevel`로 리포 루트로 승격
+### Per-project allowlist
 
-`$CLAUDE_PROJECT_DIR`를 최우선으로 두는 이유는 페이로드의 `cwd`가 세션 도중 드리프트할 수 있는 반면 env var는 변하지 않기 때문입니다. 서브디렉토리에서 Claude Code를 launch 했더라도 git rev-parse 승격으로 리포 전체가 Tier 3가 됩니다.
-
-### 프로젝트별 허용 목록
-
-Tier 2를 풀고 싶은 프로젝트는 루트에 다음 파일을 둡니다:
+To opt out of Tier 2 for a project, create this file at the project root:
 
 ```
 <project>/.claude/hook-write-allowlist
 ```
 
-한 줄에 하나씩 글롭 패턴을 적고, `~`는 `$HOME`으로 확장됩니다. `#`으로 시작하는 줄은 주석입니다. **Tier 1은 허용 목록으로도 풀 수 없습니다** (실수로 비밀 키를 허용해도 차단).
+One glob pattern per line; `~` expands to `$HOME`; lines starting with `#` are comments. **Tier 1 cannot be unblocked via the allowlist** — even an accidental entry will not let a private key through.
 
-예를 들어, dotfiles 성격의 machine-config 프로젝트(`~/.zshrc`, `~/.config/**` 등을 관리하는 레포)라면 아래와 같이 적습니다:
+For example, a dotfiles / machine-config project (a repo that manages `~/.zshrc`, `~/.config/**`, etc.) might use:
 
 ```
-# 예시 — dotfiles / machine-config 프로젝트
+# Example — dotfiles / machine-config project
 ~/.zshrc
-~/.zprofile
-~/.gitconfig
 ~/.config/**
 ~/Library/Preferences/com.apple.**
-~/.dotfiles-backup-*/**
 ```
 
-위 예시는 설명용이며, 실제 허용할 경로는 각 프로젝트가 스스로 결정합니다.
+This example is illustrative only — each project decides its own allowed paths.
 
 ## Requirements
 
@@ -106,5 +96,4 @@ Tier 2를 풀고 싶은 프로젝트는 루트에 다음 파일을 둡니다:
 
 MIT. See [`LICENSE`](LICENSE).
 
-Portions derived from third-party MIT-licensed projects — see
-[`NOTICES.md`](NOTICES.md) for attribution.
+Portions derived from third-party MIT-licensed projects — see [`NOTICES.md`](NOTICES.md) for attribution.
