@@ -8,12 +8,16 @@
 # workflow:
 #
 #   1. A recent conversation log must exist under <project>/conv-logs/
-#   2. The log must be ≤ 3 minutes old (stale logs ⇒ run save-conversation)
+#   2. The log must be ≤ 30 minutes old (stale logs ⇒ run save-conversation)
 #   3. The log must be staged for commit (or already committed earlier)
 #
 # Opt-in by project: the hook is a no-op unless <project>/conv-logs/
 # already exists. This keeps projects that don't use the save-conversation
 # workflow unaffected.
+#
+# Bypass: a commit message containing the token `[no-conv]` skips
+# enforcement entirely (for chore/typo/rebase commits that have no new
+# conversation worth recording).
 #
 # When a check fails, the hook emits a structured JSON block on stderr
 # with a `systemMessage` that instructs Claude to run the
@@ -31,6 +35,13 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
 
 # Only intercept commands that contain `git commit` (direct or chained).
 if ! echo "$COMMAND" | grep -qE '(^|\&\&|;|\|)\s*git\s+commit(\s|$)'; then
+  exit 0
+fi
+
+# Bypass token — chore/typo/rebase commits opt out via `[no-conv]` in the
+# commit message. Substring match on the full command is sufficient because
+# the token is uncommon and intentional.
+if echo "$COMMAND" | grep -qF '[no-conv]'; then
   exit 0
 fi
 
@@ -65,7 +76,7 @@ EOF
   exit 2
 fi
 
-# ── 2. Log is fresh (≤ 3 minutes old)? ─────────────────────
+# ── 2. Log is fresh (≤ 30 minutes old)? ────────────────────
 if [[ "$OSTYPE" == "darwin"* ]]; then
   FILE_TIME=$(stat -f %m "$LATEST_LOG")
 else
@@ -74,12 +85,12 @@ fi
 CURRENT_TIME=$(date +%s)
 AGE=$(( CURRENT_TIME - FILE_TIME ))
 
-if [ "$AGE" -gt 180 ]; then
+if [ "$AGE" -gt 1800 ]; then
   cat >&2 <<'EOF'
 {
   "decision": "deny",
-  "reason": "git commit intercepted: conversation log is older than 3 minutes",
-  "systemMessage": "HOOK INSTRUCTION: The latest conversation log is stale. Before running git commit, you MUST do the following steps in order:\n1. Run the save-conversation skill (invoke Skill tool with skill: 'joo-on-claude:save-conversation')\n2. Then retry the original git commit command.\n\nDo NOT skip these steps. Do NOT ask the user for confirmation - just do it."
+  "reason": "git commit intercepted: conversation log is older than 30 minutes",
+  "systemMessage": "HOOK INSTRUCTION: The latest conversation log is stale. Before running git commit, you MUST do the following steps in order:\n1. Run the save-conversation skill (invoke Skill tool with skill: 'joo-on-claude:save-conversation')\n2. Then retry the original git commit command.\n\nIf the commit is purely mechanical (chore/typo/rebase) and has no new conversation worth recording, you may instead add `[no-conv]` to the commit message to skip this check.\n\nDo NOT skip these steps without good reason. Do NOT ask the user for confirmation - just do it."
 }
 EOF
   exit 2
