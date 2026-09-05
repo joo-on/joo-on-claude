@@ -4,7 +4,7 @@
  *
  * OMC 수준의 풍부한 상태줄을 제공합니다.
  * 한 줄에 한 범주씩, 위에서 아래로:
- *   1 정체성 — 경로, 브랜치, 모델·effort, 컨텍스트 바, output style, 시계
+ *   1 정체성 — 경로, 브랜치, 모델·effort, output style(약자), 컨텍스트 바, 시계
  *   2 예산   — 경과, 비용, 변경 줄 수, rate limit(5h/7d), 프롬프트 캐시
  *   3 활동   — 마지막 도구, 에이전트, 스킬, Todo  (보여줄 게 없으면 줄 자체를 생략)
  *
@@ -200,13 +200,32 @@ function renderLinesChanged(added, removed) {
   return `${GREEN}+${added || 0}${RESET}${DIM}/${RESET}${RED}-${removed || 0}${RESET}`;
 }
 
+/** 알려진 output style의 약자. 없으면 앞 4글자로 줄인다. */
+const STYLE_ABBREV = {
+  explanatory: 'expl',
+  learning: 'learn',
+  concise: 'conc',
+};
+
 /**
  * output style — 기본값일 때는 표시하지 않는다.
+ *
+ * "style:" 라벨은 붙이지 않는다. 자리가 모델 배지 바로 뒤로 고정되어 있고
+ * 색(마젠타)도 다른 요소와 겹치지 않아, 라벨 없이도 무엇인지 읽힌다.
  */
 function renderOutputStyle(style) {
   const name = style?.name;
   if (!name || name === 'default') return '';
-  return `${MAGENTA}style:${name}${RESET}`;
+  const key = name.toLowerCase();
+  return `${MAGENTA}${STYLE_ABBREV[key] || key.slice(0, 4)}${RESET}`;
+}
+
+/**
+ * 모델 표시명에서 "context"를 떼어낸다.
+ * "Opus 5 (1M context)" → "Opus 5 (1M)" — 괄호 안이 1M이면 컨텍스트라는 건 자명하다.
+ */
+function shortModelName(name) {
+  return name.replace(/\s+context\b/i, '');
 }
 
 /**
@@ -238,13 +257,12 @@ function buildIdentityLine(input) {
   const parts = [];
   parts.push(`${BLUE}${renderFishPath(cwd)}${RESET}`);
   if (branch) parts.push(`${YELLOW}(${branch})${RESET}`);
-  if (model) parts.push(`${CYAN}[${model}${effort ? `·${effort}` : ''}]${RESET}`);
-
-  if (ctxPct != null) parts.push(renderContextBar(ctxPct));
+  if (model) parts.push(`${CYAN}[${shortModelName(model)}${effort ? `·${effort}` : ''}]${RESET}`);
 
   const styleStr = renderOutputStyle(input.output_style);
   if (styleStr) parts.push(styleStr);
 
+  if (ctxPct != null) parts.push(renderContextBar(ctxPct));
   parts.push(`${DIM}${clock}${RESET}`);
 
   return parts.join(' ');
