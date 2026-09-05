@@ -42,12 +42,12 @@ summary, not a verbatim transcript.
 
 **IMPORTANT:** Always resolve the project root via
 `git rev-parse --show-toplevel` and use that as the base for `conv-logs/`.
-Do NOT use the current working directory — it may be a subdirectory.
+Do NOT use the current working directory — it may be a subdirectory. If the caller is not inside a git repo at all, fall back to `pwd` so writes never escape into `/conv-logs/...`.
 
 ### Step 1: Create the output directory
 
 ```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel)
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 YYYYMM=$(date +%Y%m)
 DD=$(date +%d)
 mkdir -p "${PROJECT_ROOT}/conv-logs/${YYYYMM}/${DD}"

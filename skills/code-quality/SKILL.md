@@ -3,7 +3,7 @@ name: code-quality
 description: Evaluate code quality across 9 dimensions (readability, consistency, maintainability, extensibility, testability, test quality, performance, security, dependency management) using 4 parallel Explore subagents, and produce a scored markdown report with trend tracking against previous runs. Use ONLY when the user explicitly invokes /code-quality — do not trigger from ambient mentions of quality or reviews.
 argument-hint: "[target-path-or-module]"
 disable-model-invocation: true
-allowed-tools: Read, Glob, Grep, Bash(find:*), Bash(wc:*), Bash(ls:*)
+allowed-tools: Read, Write, Glob, Grep, Agent, Bash(find:*), Bash(wc:*), Bash(ls:*)
 model: opus
 ---
 
@@ -24,7 +24,7 @@ model: opus
 
 # Code Quality Evaluation
 
-Evaluate the code quality of the target specified by $ARGUMENTS. If no target is provided, evaluate the current working directory. If a previous quality report exists (quality-*.md in the project root), read it first and compare results to track improvement or regression.
+Evaluate the code quality of the target specified by $ARGUMENTS. If no target is provided, evaluate the current working directory. If a previous quality report exists (quality-*.md in the project root — if more than one matches, use the most recently modified), read it first and compare results to track improvement or regression.
 
 ## Phase 1: Scope Discovery
 
@@ -69,7 +69,7 @@ Provide specific file:line examples for both strengths and weaknesses.
 
 ## Phase 3: Scoring & Synthesis
 
-Compile all findings into a single Markdown file saved as `quality-{YYYYMMDD}.md` in the project root.
+Compile all findings into a single Markdown file saved as `quality-{YYYYMMDD-HHmmss}.md` in the project root. Including the time prevents a same-day re-run from silently overwriting the report the next run needs for trend comparison.
 
 ### Output Structure
 

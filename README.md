@@ -42,7 +42,7 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 
 | Skill | Description |
 |-------|-------------|
-| `/joo-on-claude:code-quality [target]` | 9-dimension code-quality report (4 parallel Explores, writes `quality-YYYYMMDD.md`) |
+| `/joo-on-claude:code-quality [target]` | 9-dimension code-quality report (4 parallel Explores, writes `quality-YYYYMMDD-HHmmss.md`) |
 | `/joo-on-claude:code-explore [target]` | Deep dive into structure, dependencies, and tests via 3–5 parallel Explores (writes `code-<slug>-<ts>.md`) |
 | `/joo-on-claude:merge-permissions [apply]` | Merge `settings.local.json` into `~/.claude/settings.json` (dry-run by default; warns on widening; auto-backup; deny rules are union-only) |
 | `save-conversation` | Save a conversation summary to `conv-logs/YYYYMM/DD/conv-TS.md`. Per-session incremental saves, records elapsed time between saves, English template. Triggers: "save conv", "대화 저장", etc. |
