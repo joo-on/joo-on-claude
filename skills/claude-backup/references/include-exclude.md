@@ -36,7 +36,7 @@ A path is **excluded** if any of the following hold:
 | `commands/` | User-level slash commands. |
 | `skills/` | User-level skills. Many are symlinks (e.g. into `gstack/`); rsync preserves them verbatim. |
 | `plans/` | User-authored plan documents. |
-| `hud/` | HUD scripts — this plugin installs `statusline.mjs` here. The regenerable `.cache.json` beside it is excluded. |
+| `hud/` | HUD scripts — this plugin symlinks `statusline.mjs` here (rsync preserves the link). Any `.cache.json` beside it is excluded as a regenerable cache. |
 | `teams/` | Team configuration. |
 | `.omc/` | OMC user config files. |
 | `agents/` | User-level subagents. Currently unused on most machines, but included so the skill is forward-compatible when the user starts adding global subagents. |

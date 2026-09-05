@@ -1,88 +1,105 @@
 ---
 name: hud
-description: Install, configure, or remove the joo-on-claude HUD statusline
+description: Install, configure, or remove the joo-on-claude HUD statusline — a two-line status bar showing path, branch, model, context-window usage, session cost, rate limit and clock on line 1, and the last tool, running agents with elapsed time, the last skill, and todo progress on line 2. Trigger on "hud setup", "install the hud", "statusline 설치", "HUD 설치", "상태줄 설정", "hud status", "HUD 상태", "hud remove", "HUD 제거", "상태줄 없애줘", or when the user asks why their statusline is blank or out of date. Do NOT trigger for editing settings.json in general — use the settings tooling for that.
 argument-hint: "[setup|status|remove]"
+allowed-tools: Read, Write, Edit, Bash(mkdir:*), Bash(ln:*), Bash(rm:*), Bash(ls:*), Bash(readlink:*), Bash(test:*), Bash(node:*), Bash(diff:*)
+model: opus
 ---
 
 # HUD Skill
 
-Configure the joo-on-claude HUD (Heads-Up Display) statusline.
+Install and manage the joo-on-claude HUD (Heads-Up Display) statusline.
 
-## Quick Commands
+Read `$ARGUMENTS` to pick the operation. With no argument, default to `setup`.
 
-| Command | Description |
-|---------|-------------|
-| `/joo-on-claude:hud setup` | HUD 설치 및 설정 |
-| `/joo-on-claude:hud status` | 현재 HUD 상태 확인 |
-| `/joo-on-claude:hud remove` | HUD 제거 및 원복 |
+## How the install works
 
-## Arguments
+Setup **symlinks** the plugin's `statusline/statusline.mjs` into `~/.claude/hud/` rather than copying it. The trade-off is deliberate:
 
-### `setup` (default)
+- **Why a symlink:** a copy silently goes stale. Every plugin update would leave the installed statusline frozen at whatever version was current when you ran setup, with nothing reporting the drift. The link always resolves to the installed plugin, so updating the plugin updates the HUD.
+- **What it costs:** if the plugin is uninstalled or its cache directory is pruned, the link dangles and the statusline goes blank. Run `remove` before uninstalling the plugin, or re-run `setup` afterwards. `status` detects a dangling link explicitly.
 
-HUD를 설치합니다. 다음 단계를 순서대로 수행하세요:
+## `setup` (default)
 
-1. **HUD 디렉토리 확인 및 생성:**
+1. **Create the directory and replace any previous install:**
    ```bash
    mkdir -p ~/.claude/hud
+   rm -f ~/.claude/hud/statusline.mjs ~/.claude/hud/.cache.json
+   ln -s "${CLAUDE_PLUGIN_ROOT}/statusline/statusline.mjs" ~/.claude/hud/statusline.mjs
    ```
+   `rm -f` clears both a stale copy from an older install and `.cache.json`, which older versions of the statusline wrote and current versions do not.
 
-2. **플러그인에서 statusline.mjs 복사:**
-   - 이 스킬이 위치한 플러그인의 `statusline/statusline.mjs` 파일을 찾습니다
-   - 플러그인 경로: 이 SKILL.md 파일의 2단계 상위 디렉토리에 `statusline/statusline.mjs`가 있습니다
-   - 해당 파일을 `~/.claude/hud/statusline.mjs`로 복사합니다
+2. **Verify the link resolves:**
    ```bash
-   # 플러그인 캐시에서 statusline.mjs 위치를 찾아 복사
-   find ~/.claude/plugins/cache -path "*/joo-on-claude/*/statusline/statusline.mjs" -newer ~/.claude/hud/statusline.mjs 2>/dev/null | head -1
+   test -e ~/.claude/hud/statusline.mjs && echo OK || echo BROKEN
    ```
+   If this prints `BROKEN`, `${CLAUDE_PLUGIN_ROOT}` did not expand — report that instead of continuing, because the statusline would render blank.
 
-3. **settings.json 업데이트:**
-   - `~/.claude/settings.json`을 읽습니다
-   - `statusLine` 필드를 다음으로 설정합니다:
-     ```json
-     {
-       "statusLine": {
-         "type": "command",
-         "command": "node ~/.claude/hud/statusline.mjs"
-       }
+3. **Point settings.json at it.** Read `~/.claude/settings.json` and set:
+   ```json
+   {
+     "statusLine": {
+       "type": "command",
+       "command": "node ~/.claude/hud/statusline.mjs"
      }
-     ```
-   - 기존 statusLine 설정이 있으면 덮어씁니다
+   }
+   ```
+   Overwrite any existing `statusLine` value. Preserve every other key in the file.
 
-4. **Node.js 확인:**
+4. **Check the Node version:**
    ```bash
    node --version
    ```
-   Node.js 18 미만이면 경고를 표시합니다.
+   Warn if it is below 18.
 
-5. **완료 메시지:**
-   - "HUD가 설치되었습니다. Claude Code를 재시작하면 새 상태줄이 적용됩니다."
-   - 재시작 방법 안내: `/exit` 후 다시 시작
+5. **Report:** tell the user the HUD is installed and that restarting Claude Code (`/exit`, then start again) applies the new statusline.
 
-### `status`
+## `status`
 
-현재 HUD 상태를 확인합니다:
+Report four things:
 
-1. `~/.claude/hud/statusline.mjs` 파일 존재 여부 확인
-2. `~/.claude/settings.json`의 `statusLine.command`가 `node ~/.claude/hud/statusline.mjs`인지 확인
-3. 캐시 파일 (`~/.claude/hud/.cache.json`) 존재 여부 및 크기 확인
-4. 결과를 표로 출력:
+1. **Link** — `readlink ~/.claude/hud/statusline.mjs`
+   - a path into the plugin → `✅ linked`
+   - resolves to nothing (`test -e` fails) → `❌ broken link` and suggest re-running `setup`
+   - a regular file, not a link → `⚠️ copy (legacy)`; `diff` it against `${CLAUDE_PLUGIN_ROOT}/statusline/statusline.mjs` and report whether it is current, then suggest re-running `setup` to convert it to a link
+   - missing → `❌ not installed`
+2. **Settings** — whether `statusLine.command` in `~/.claude/settings.json` is `node ~/.claude/hud/statusline.mjs`
+3. **Node** — `node --version`, flagged if below 18
+4. **Render check** — confirm the script parses:
+   ```bash
+   node --check ~/.claude/hud/statusline.mjs
    ```
-   HUD Status:
-   - Script:   ✅ installed (~/.claude/hud/statusline.mjs)
-   - Settings: ✅ configured
-   - Cache:    ✅ active (2.1KB)
+
+Print it as a short block:
+
+```
+HUD Status:
+- Link:     ✅ linked → <plugin>/statusline/statusline.mjs
+- Settings: ✅ configured
+- Node:     ✅ v22.11.0
+- Script:   ✅ parses
+```
+
+## `remove`
+
+1. Remove the `statusLine` field from `~/.claude/settings.json`, preserving every other key.
+2. Delete the directory:
+   ```bash
+   rm -rf ~/.claude/hud
    ```
+3. Report that the HUD is removed and that restarting Claude Code restores the default statusline.
 
-### `remove`
+## Troubleshooting a blank statusline
 
-HUD를 제거합니다:
+The statusline writes diagnostics to **stderr**, so a failure is no longer silent. Run it by hand against a minimal payload to see what it says:
 
-1. `~/.claude/settings.json`에서 `statusLine` 필드를 제거합니다
-2. `~/.claude/hud/` 디렉토리를 삭제합니다
-3. "HUD가 제거되었습니다. Claude Code를 재시작하면 기본 상태줄로 돌아갑니다."
+```bash
+echo '{"cwd":"'"$PWD"'"}' | node ~/.claude/hud/statusline.mjs
+```
 
-## Environment Variables
+Line 1 renders even when the transcript cannot be parsed — the two are handled separately on purpose, so a transcript problem costs you line 2 only.
 
-- `CLAUDE_CONFIG_DIR`: Claude 설정 디렉토리 (기본값: `~/.claude`)
-  - 이 변수가 설정되어 있으면 모든 경로에서 `~/.claude` 대신 이 경로를 사용합니다
+## Environment variables
+
+- `CLAUDE_CONFIG_DIR` — Claude's config directory (default `~/.claude`). Honour it in every path this skill touches.
+- `CLAUDE_PLUGIN_ROOT` — set by Claude Code to this plugin's root. It is what makes the symlink target correct across installs; never hardcode a path into the plugin cache.

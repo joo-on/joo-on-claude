@@ -6,21 +6,12 @@
  * Line 1: 경로, 브랜치, 모델, 컨텍스트 바, 비용, rate limit, 시계
  * Line 2: 마지막 도구, 에이전트 추적, 스킬, Todo 진행률
  *
- * 의존성: Node.js 빌트인만 사용 (fs, path, child_process, os)
+ * 의존성: Node.js 빌트인만 사용 (fs, child_process, os)
  */
 
-import { readFileSync, statSync, openSync, readSync, closeSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, statSync, openSync, readSync, closeSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
-
-// ============================================================================
-// 설정
-// ============================================================================
-
-const CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-const CACHE_DIR = join(CONFIG_DIR, 'hud');
-const CACHE_PATH = join(CACHE_DIR, '.cache.json');
 
 // ============================================================================
 // 색상 상수
@@ -186,7 +177,14 @@ function readTailLines(filePath, fileSize, maxBytes) {
 }
 
 /**
- * Transcript JSONL 파싱 (캐싱 포함)
+ * Transcript JSONL 파싱
+ *
+ * 캐시는 의도적으로 없다. 이전에는 ~/.claude/hud/.cache.json 하나를 모든
+ * 세션이 공유했는데, 실측 결과 292KB 트랜스크립트 기준 절약폭이 8ms
+ * (91ms → 83ms)뿐이었다. 나머지는 전부 Node 기동 비용이다. 게다가 세션을
+ * 두 개만 켜도 두 세션이 서로의 캐시를 덮어써서 적중률이 0이 된다.
+ * 렌더마다 디스크에 쓰는 비용과 교차 세션 충돌을 8ms에 살 이유가 없다.
+ * 다시 넣고 싶다면 먼저 재고, 트랜스크립트별로 키를 나눌 것.
  */
 function parseTranscript(transcriptPath) {
   const empty = { agents: [], todos: [], lastToolName: null, lastSkill: null, toolCallCount: 0, agentCallCount: 0 };
@@ -198,13 +196,6 @@ function parseTranscript(transcriptPath) {
   } catch {
     return empty;
   }
-
-  // 캐시 확인
-  const cacheKey = `${transcriptPath}:${stat.size}:${stat.mtimeMs}`;
-  try {
-    const cached = JSON.parse(readFileSync(CACHE_PATH, 'utf8'));
-    if (cached.cacheKey === cacheKey) return cached.data;
-  } catch { /* 캐시 미스 */ }
 
   // JSONL 파싱
   const agentMap = new Map();
@@ -232,12 +223,6 @@ function parseTranscript(transcriptPath) {
   }
   result.agents = [...running, ...completed.slice(-(10 - running.length))].slice(0, 10);
   result.todos = latestTodos;
-
-  // 캐시 저장
-  try {
-    mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_PATH, JSON.stringify({ cacheKey, data: result }));
-  } catch { /* 캐시 저장 실패 무시 */ }
 
   return result;
 }
@@ -404,19 +389,33 @@ function buildLine2(transcript) {
 // 메인
 // ============================================================================
 
+const warn = (msg) => process.stderr.write(`[joo-on-claude HUD] ${msg}\n`);
+
 async function main() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
-  const input = JSON.parse(Buffer.concat(chunks).toString());
 
-  const line1 = buildLine1(input);
-  process.stdout.write(line1 + '\n');
+  let input;
+  try {
+    input = JSON.parse(Buffer.concat(chunks).toString());
+  } catch (err) {
+    // 파싱에 실패해도 빈 줄보다는 쓸모 있는 줄을 그린다.
+    warn(`stdin을 파싱하지 못했습니다: ${err.message}`);
+    input = { cwd: process.cwd() };
+  }
 
-  const transcript = parseTranscript(input.transcript_path);
-  const line2 = buildLine2(transcript);
-  if (line2) process.stdout.write(line2 + '\n');
+  process.stdout.write(buildLine1(input) + '\n');
+
+  // 트랜스크립트 문제 때문에 Line 1까지 잃지 않도록 분리해서 감싼다.
+  try {
+    const line2 = buildLine2(parseTranscript(input.transcript_path));
+    if (line2) process.stdout.write(line2 + '\n');
+  } catch (err) {
+    warn(`트랜스크립트 파싱 실패: ${err?.stack || err}`);
+  }
 }
 
-main().catch(() => {
+main().catch((err) => {
+  warn(err?.stack || err);
   process.stdout.write('\n');
 });

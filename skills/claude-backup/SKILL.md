@@ -20,9 +20,9 @@ model: opus
        /claude-backup-list, /claude-restore) wrapping this skill. They are
        folded into this single skill with a subcommand argument instead,
        matching the shape of the `hud` skill in this plugin.
-    4. `scripts/backup.sh` gained `--exclude='.cache.json'` — this plugin's
-       HUD writes a regenerable cache at ~/.claude/hud/.cache.json, which
-       upstream's exclude list (directories named cache/ only) would copy.
+    4. `scripts/backup.sh` gained `--exclude='.cache.json'` — upstream's
+       exclude list only covers directories named cache/, so a regenerable
+       dotfile cache with that conventional name would be copied.
     5. `scripts/list-backups.sh` header comment said the snapshots live under
        ~/.claude/backups/ while the code reads ~/.claude-backup/. Fixed to
        match the code.

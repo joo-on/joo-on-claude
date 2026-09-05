@@ -53,7 +53,7 @@ RSYNC_EXCLUDES=(
   --exclude='__pycache__/'
   --exclude='.DS_Store'
   --exclude='*.log'
-  --exclude='.cache.json'   # joo-on-claude HUD cache — regenerable
+  --exclude='.cache.json'   # conventional dotfile cache name — regenerable
 )
 
 # --- Manifest header -------------------------------------------------------

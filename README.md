@@ -6,7 +6,9 @@ Personal Claude Code plugin — HUD statusline and more.
 
 ### HUD (Statusline)
 
-A two-line statusline inspired by OMC.
+A two-line statusline inspired by OMC. `setup` symlinks the script into `~/.claude/hud/`,
+so a plugin update applies to the HUD without reinstalling — run `hud remove` before
+uninstalling the plugin, or the link dangles.
 
 **Line 1** — session metadata:
 ```
@@ -35,7 +37,7 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 | Command | Description |
 |---------|-------------|
 | `/joo-on-claude:hud setup` | Install and configure the HUD |
-| `/joo-on-claude:hud status` | Show current HUD status |
+| `/joo-on-claude:hud status` | Show HUD status — link target, settings, Node version, script parse |
 | `/joo-on-claude:hud remove` | Remove the HUD and restore the original statusline |
 
 ## Skills
