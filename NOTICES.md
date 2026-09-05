@@ -45,6 +45,8 @@ SOFTWARE.
 | `skills/code-explore/SKILL.md` | Near-verbatim port; frontmatter adjusted, HTML attribution block added |
 | `skills/merge-permissions/SKILL.md` | Hardened port (significantly rewritten); 5 safety invariants, dry-run default, deny-union-only guarantee added |
 | `skills/save-conversation/SKILL.md` | Restructured port; English-only template, elapsed-time tracking added, monthly prompt log removed |
+| `skills/handoff/SKILL.md` | Near-verbatim port; frontmatter adjusted, git-root `pwd` fallback added, confirmation message switched to English |
+| `skills/catchup/SKILL.md` | Near-verbatim port; frontmatter adjusted (Write/Edit deliberately withheld so the skill can only report), git-root fallback and filename-safe handoff lookup added |
 | `skills/tdd-team/SKILL.md` | Near-verbatim port; frontmatter adjusted, body preserved |
 | `skills/tdd-team/references/agent-prompts.md` | Verbatim copy |
 
