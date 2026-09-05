@@ -131,12 +131,48 @@ function renderRateLimits(rateLimits) {
   return `${DIM}⚡${RESET}${rendered.join(' ')}`;
 }
 
+/** 만료 몇 분 전부터 경고할지 */
+const CACHE_EXPIRY_WARNING_MS = 10 * 60 * 1000;
+
 /**
- * 프롬프트 캐시 상태 — 캐시가 식으면 컨텍스트 전체를 다시 지불한다.
+ * 토큰 수를 짧게: 45000 → 45k, 1240000 → 1.2M
+ */
+function formatTokens(n) {
+  if (n == null) return '';
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}k`;
+  return String(n);
+}
+
+/**
+ * 프롬프트 캐시 상태.
+ *
+ * 세 가지를 구분해서 보여준다:
+ *   cold        이미 식음 — 다음 요청이 prefix 전체를 다시 캐시에 쓴다
+ *   N분 남음    아직 따뜻하지만 곧 식는다 (식기 *전에* 알리는 게 요점)
+ *   적중률      그 외 평시. hit_ratio는 세션 누적이라 굼뜬 지표이므로
+ *               위 두 즉시 신호가 항상 우선한다.
+ *
+ * 경고 상태에는 recache_tokens_if_cold를 괄호로 붙인다 — "식었다/곧 식는다"만으로는
+ * 지금 멈출지 계속할지 판단할 수 없고, 다시 채우는 비용을 알아야 결정이 선다.
+ * 이 값은 세션 누적 사용량이 아니라 현재 컨텍스트 prefix의 크기다.
  */
 function renderPromptCache(cache) {
   if (!cache) return '';
-  if (cache.warm === false) return `${RED}cache:cold${RESET}`;
+
+  const recache = formatTokens(cache.recache_tokens_if_cold);
+  const cost = recache ? `${DIM}(${recache})${RESET}` : '';
+
+  if (cache.warm === false) return `${RED}cache:cold${RESET}${cost}`;
+
+  if (cache.expires_at) {
+    const left = cache.expires_at * 1000 - Date.now();
+    if (left > 0 && left <= CACHE_EXPIRY_WARNING_MS) {
+      const mins = Math.max(1, Math.round(left / 60000));
+      return `${YELLOW}cache:${mins}m${RESET}${cost}`;
+    }
+  }
+
   if (cache.hit_ratio == null) return `${DIM}cache:warm${RESET}`;
   const pct = Math.round(cache.hit_ratio * 100);
   const color = pct >= 80 ? GREEN : pct >= 50 ? YELLOW : RED;

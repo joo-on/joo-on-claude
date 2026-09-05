@@ -28,10 +28,23 @@ tool:Read | agents:2[explore(45s),plan(2m)] | skill:handoff | 3/7
    progress. Read from the transcript, and the line is omitted entirely when there
    is nothing to show.
 
-Two fields are worth reacting to. The rate-limit countdown attaches to whichever
-window is more consumed, so `⚡5h 100%(1h37m)` in red means that window is spent
-and says when it returns. And `cache:cold` in red means the prompt cache lapsed —
-the next turn re-pays for the whole context at full price.
+Two fields are worth reacting to.
+
+The rate-limit countdown attaches to whichever window is more consumed, so
+`⚡5h 100%(1h37m)` in red means that window is spent and says when it returns.
+
+The prompt cache has three states, and the warning ones carry their price:
+
+| Shown | Meaning |
+|---|---|
+| `cache:91%` | Healthy. Session-cumulative hit ratio, so it lags — a fresh miss barely moves it |
+| `cache:9m(420k)` | Warm but expiring in 9 minutes; going cold re-caches 420k tokens |
+| `cache:cold(420k)` | Already cold. The next request re-caches 420k tokens |
+
+The number in parentheses is the size of the current context prefix that would be
+re-cached — not the session's cumulative token usage. It is what turns "the cache
+is about to lapse" into a decision: step away and pay it, or finish the thought
+first. It is omitted when Claude Code has not reported a size yet.
 
 `cost` is an estimate at API list price, not your bill; on a subscription it is a
 measure of intensity rather than money owed, and it resets on `/clear`.
