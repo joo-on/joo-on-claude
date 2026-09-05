@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Claude Code project state — machine-local settings, hook test scratch,
+# and anything the handoff skill writes under .claude/reports/.
+# To track a specific file anyway: git add -f .claude/<path>
+.claude/
+
+# Analysis reports written to the project root by code-quality / code-explore.
+# Uncomment if you would rather commit them for trend tracking.
+# quality-*.md
+# code-*.md

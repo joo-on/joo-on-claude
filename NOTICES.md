@@ -44,6 +44,11 @@ SOFTWARE.
 | `skills/code-quality/SKILL.md` | Near-verbatim port; frontmatter adjusted, HTML attribution block added |
 | `skills/code-explore/SKILL.md` | Near-verbatim port; frontmatter adjusted, HTML attribution block added |
 | `skills/merge-permissions/SKILL.md` | Hardened port (significantly rewritten); 5 safety invariants, dry-run default, deny-union-only guarantee added |
+| `skills/claude-backup/SKILL.md` | Restructured port; three upstream slash commands folded into one subcommand skill, frontmatter adjusted |
+| `skills/claude-backup/references/include-exclude.md` | Near-verbatim; HUD cache exclusion documented |
+| `skills/claude-backup/scripts/backup.sh` | Near-verbatim; added `.cache.json` to the exclude list |
+| `skills/claude-backup/scripts/list-backups.sh` | Verbatim except a corrected header comment (said `~/.claude/backups/`, code reads `~/.claude-backup/`) |
+| `skills/claude-backup/scripts/restore.sh` | Verbatim copy |
 | `skills/save-conversation/SKILL.md` | Restructured port; English-only template, elapsed-time tracking added, monthly prompt log removed |
 | `skills/handoff/SKILL.md` | Near-verbatim port; frontmatter adjusted, git-root `pwd` fallback added, confirmation message switched to English |
 | `skills/catchup/SKILL.md` | Near-verbatim port; frontmatter adjusted (Write/Edit deliberately withheld so the skill can only report), git-root fallback and filename-safe handoff lookup added |
