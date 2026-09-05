@@ -14,13 +14,13 @@ Three lines, one category each, so every number keeps a fixed position instead o
 sliding around as activity changes. Each stays in the 60-character range.
 
 ```
-~/w/mac-cfg (main) [Opus 5·xhigh] style:explanatory ▓▓▓▓░░░░░░ 42% 14:30
+~/w/mac-cfg (main) [Opus 5·xhigh] ▓▓▓▓░░░░░░ 42% style:explanatory 14:30
 up 3h | $18.80 | +1204/-318 | ⚡5h 100%(1h37m) 7d 41% | cache:91%
 tool:Read | agents:2[explore(45s),plan(2m)] | skill:handoff | 3/7
 ```
 
-1. **Identity** — path, branch, model + reasoning effort, output style (hidden when
-   it is `default`), context bar, clock.
+1. **Identity** — path, branch, model + reasoning effort, context bar, output style
+   (hidden when it is `default`), clock.
 2. **Budget** — session duration, estimated cost, lines changed, both rate-limit
    windows, prompt-cache health. Drawn straight from the payload, so it survives a
    transcript that cannot be parsed.

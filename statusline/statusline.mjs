@@ -4,7 +4,7 @@
  *
  * OMC 수준의 풍부한 상태줄을 제공합니다.
  * 한 줄에 한 범주씩, 위에서 아래로:
- *   1 정체성 — 경로, 브랜치, 모델·effort, output style, 컨텍스트 바, 시계
+ *   1 정체성 — 경로, 브랜치, 모델·effort, 컨텍스트 바, output style, 시계
  *   2 예산   — 경과, 비용, 변경 줄 수, rate limit(5h/7d), 프롬프트 캐시
  *   3 활동   — 마지막 도구, 에이전트, 스킬, Todo  (보여줄 게 없으면 줄 자체를 생략)
  *
@@ -240,10 +240,11 @@ function buildIdentityLine(input) {
   if (branch) parts.push(`${YELLOW}(${branch})${RESET}`);
   if (model) parts.push(`${CYAN}[${model}${effort ? `·${effort}` : ''}]${RESET}`);
 
+  if (ctxPct != null) parts.push(renderContextBar(ctxPct));
+
   const styleStr = renderOutputStyle(input.output_style);
   if (styleStr) parts.push(styleStr);
 
-  if (ctxPct != null) parts.push(renderContextBar(ctxPct));
   parts.push(`${DIM}${clock}${RESET}`);
 
   return parts.join(' ');
