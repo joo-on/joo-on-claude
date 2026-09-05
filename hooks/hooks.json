@@ -7,10 +7,6 @@
           {
             "type": "command",
             "command": "bash '${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-dangerous-bash.sh'"
-          },
-          {
-            "type": "command",
-            "command": "bash '${CLAUDE_PLUGIN_ROOT}/hooks/scripts/save-conv-before-commit.sh'"
           }
         ]
       },
@@ -20,16 +16,6 @@
           {
             "type": "command",
             "command": "bash '${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-dangerous-write.sh'"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash '${CLAUDE_PLUGIN_ROOT}/hooks/scripts/save-conv-on-stop.sh'"
           }
         ]
       }

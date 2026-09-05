@@ -25,8 +25,8 @@ model: opus
 
   Intentionally preserved:
     - Per-session incremental behavior (only content since the last save).
-    - Auto-staging via `git add` so the log commits alongside the work
-      (pairs with save-conv-before-commit hook).
+    - Auto-staging via `git add` so the log lands in the same commit as
+      the work it describes.
     - Per-topic tool-use tracking (the `Used:` line) — the user wants
       this for post-hoc analysis of which skills/agents were involved.
 -->

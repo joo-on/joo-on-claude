@@ -50,14 +50,12 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 
 ## Safety Hooks
 
-Four hooks are registered automatically when the plugin is installed — three on `PreToolUse` and one on `Stop`.
+Two hooks are registered automatically when the plugin is installed, both on `PreToolUse`.
 
 | Hook | Event / Matcher | Role |
 |------|-----------------|------|
 | `block-dangerous-bash.sh`    | `PreToolUse` / `Bash`         | Blocks destructive or credential-leaking commands such as `rm -rf`, `curl \| sh`, `chmod 777`, `git push --force` / `--mirror` |
-| `save-conv-before-commit.sh` | `PreToolUse` / `Bash` (chain) | Intercepts `git commit`. Active only when the project has a `conv-logs/` directory (opt-in). Rejects the commit if no conversation log from the last **30 minutes** is staged. A commit message containing `[no-conv]` bypasses the check (use for chore/typo/rebase commits with no new conversation worth recording). |
 | `block-dangerous-write.sh`   | `PreToolUse` / `Write\|Edit`  | Validates file writes via a three-tier policy (see below) |
-| `save-conv-on-stop.sh`       | `Stop` (any)                  | Safety net for sessions that don't end in a commit. When Claude is about to stop responding and `conv-logs/` exists, blocks if the latest log is missing or older than **60 minutes**, prompting a `save-conversation` run. Looser threshold than the commit hook so it acts as a backstop, not the primary capture path. |
 
 ### Write hook — three-tier policy
 
