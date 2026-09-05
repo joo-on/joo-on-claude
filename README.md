@@ -49,7 +49,7 @@ tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
 | `save-conversation` | Save a conversation summary to `conv-logs/YYYYMM/DD/conv-TS.md`. Per-session incremental saves, records elapsed time between saves, English template. Triggers: "save conv", "대화 저장", etc. |
 | `handoff` | Write a forward-looking brief for the next session to `.claude/reports/handoff/handoff-TS.md` — Key Decisions, Traps to Avoid, line-numbered file refs, status-form Open Work, ~2K token budget. Triggers: "handoff", "세션 인계", etc. |
 | `catchup` | Resume from the newest handoff — Read-verifies every referenced file (✅Confirmed / ⚠️Shifted / ❌Missing / ❓Ambiguous), cross-checks `git status` / `git log`, then **stops** for instruction. Triggers: "catchup", "이어서 작업", etc. |
-| `tdd-team` | 3-agent Red-Green-Refactor TDD orchestration. Sequential agent calls per cycle, task breakdown → user checkpoints. Triggers: "start TDD", "TDD 시작", "test first", etc. |
+| `tdd-team` | 3-agent Red-Green-Refactor TDD orchestration. Picks a mode first (New Feature / Bug Fix / Characterization / Refactoring — the last two skip RED), detects the test command, flags untestable targets, then runs sequential agent calls with user checkpoints. Triggers: "start TDD", "TDD 시작", "test first", etc. |
 
 ## Safety Hooks
 

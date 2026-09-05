@@ -52,7 +52,7 @@ SOFTWARE.
 | `skills/save-conversation/SKILL.md` | Restructured port; English-only template, elapsed-time tracking added, monthly prompt log removed |
 | `skills/handoff/SKILL.md` | Near-verbatim port; frontmatter adjusted, git-root `pwd` fallback added, confirmation message switched to English |
 | `skills/catchup/SKILL.md` | Near-verbatim port; frontmatter adjusted (Write/Edit deliberately withheld so the skill can only report), git-root fallback and filename-safe handoff lookup added |
-| `skills/tdd-team/SKILL.md` | Near-verbatim port; frontmatter adjusted, body preserved |
+| `skills/tdd-team/SKILL.md` | Port with local additions; frontmatter adjusted, Red/Green/Refactor orchestration preserved. Setup steps 1–3 (environment table, mode selection, testability) are the author's own work, not derived from upstream |
 | `skills/tdd-team/references/agent-prompts.md` | Verbatim copy |
 
 Each derived file also carries an inline HTML comment citing this upstream.

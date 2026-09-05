@@ -3,8 +3,9 @@ name: tdd-team
 description: >
   Use this skill when the user wants to develop features using Test-Driven Development
   with an agentic Red-Green-Refactor cycle. Trigger on "start TDD", "do TDD",
-  "TDD로 개발해줘", "TDD 시작", "TDD 팀 만들어", "테스트 주도 개발",
-  "red green refactor", "test-driven development", "테스트 먼저 작성하고 싶어",
+  "TDD로 개발해줘", "TDD로 진행", "TDD 시작", "TDD 팀 만들어", "테스트 주도 개발",
+  "red green refactor", "test-driven development", "test first",
+  "테스트 먼저 작성", "테스트 먼저 작성하고 싶어",
   "write tests first then implement", "테스트부터 짜줘", "TDD 방식으로 구현해줘".
   Also trigger when a user describes a feature and says they want it built incrementally
   with tests, e.g. "이 기능 테스트 먼저 만들고 하나씩 구현하자", "build this with
@@ -24,9 +25,15 @@ model: opus
     1. Dropped non-standard `version` frontmatter key.
     2. Added `allowed-tools` (pre-approval list) and `model: opus` per
        Claude Code plugin conventions.
-    3. Body and references/agent-prompts.md are preserved verbatim — the
-       Red/Green/Refactor orchestration is the whole point and is already
-       well-tuned upstream.
+    3. references/agent-prompts.md is preserved verbatim, and the
+       Red/Green/Refactor orchestration is unchanged — it is the point of
+       the skill and is already well-tuned upstream.
+    4. Setup gained three steps merged in from the author's own `tdd` skill
+       (previously at ~/.claude/skills/tdd, written 2026-03-22 from a React
+       Native codebase, not third-party): a concrete environment-detection
+       table, TDD mode selection, and a testability assessment. The RED and
+       GREEN phases gained the mode conditions those steps imply. This
+       material is the author's own and carries no upstream attribution.
 -->
 
 # TDD Team
@@ -52,6 +59,18 @@ Before starting, detect the project's language and build tool:
 - Verify the build tool works by running a quick build
 - If no project exists, ask the user what language/framework to use
 
+Prefer a command that targets a single test file or class over one that runs
+the whole suite — a fast loop is what makes small cycles bearable:
+
+| Marker | Test command | Test file pattern |
+|--------|--------------|-------------------|
+| `package.json` + jest | `npm test -- --testPathPattern=<file>` | `*.test.ts(x)` |
+| `build.gradle` | `./gradlew test --tests <class>` | `*Test.java` |
+| `go.mod` | `go test ./...` | `*_test.go` |
+
+Other build tools listed above follow the same shape — find the flag that
+narrows the run to one target, and use it.
+
 Capture as environment context:
 ```
 PROJECT_ROOT: /path/to/project
@@ -61,7 +80,43 @@ TEST_CMD: ./gradlew test
 TEST_FRAMEWORK: JUnit 5 / Jest / pytest / etc.
 ```
 
-### 2. Decompose into TDD Tasks
+### 2. Select the TDD Mode
+
+Decide which mode the request is before decomposing. The mode determines
+whether the RED phase runs at all.
+
+| Mode | RED? | When | Cycle |
+|------|------|------|-------|
+| **New Feature** | Yes | Building new behavior | Red → Green → Refactor |
+| **Bug Fix** | Yes | Reproduce the bug as a failing test, then fix it | Red → Green → Refactor |
+| **Characterization** | No | Adding tests to existing, untested code | Green (test passes immediately) → Refactor |
+| **Refactoring** | No | Changing structure while preserving behavior | Characterization first → Refactor → tests still pass |
+
+**Characterization tests capture "this is how the code behaves today", not
+"this is how it should behave."** They are a safety net around existing
+behavior, so passing on the very first run is the success condition rather
+than a failure — which is exactly why RED is skipped for them: there is no
+new behavior to drive out.
+
+State the detected mode to the user before starting. If a request mixes modes
+("refactor this and also add the missing null check"), split it into separate
+cycles, each with its own mode.
+
+### 3. Assess Testability
+
+Not every target is worth driving through a test in place. Classify before
+writing the first one:
+
+- **Testable directly** — pure functions, service logic, utilities, API handlers
+- **Hard to test** — behavior inside UI framework hooks, navigation calls, direct native-module calls
+
+When logic is hard to test where it sits, first consider **extracting it into a
+pure function**. That usually converts a hard target into a directly testable
+one, and it is worth doing on its own merits. If something genuinely cannot be
+tested, say which part will go untested and get the user's approval before
+proceeding without coverage there.
+
+### 4. Decompose into TDD Tasks
 
 This is the most important planning step. Break the user's feature request into a sequence of small, incremental behaviors — each one becomes a TDD cycle.
 
@@ -91,6 +146,9 @@ For each task, run three sequential Agent calls. This is simpler and more reliab
 
 ### RED Phase
 
+**RED runs only in New Feature and Bug Fix modes.** In Characterization and
+Refactoring modes there is no failing test to write — go straight to GREEN.
+
 Spawn an Agent with the Red agent prompt from `references/agent-prompts.md`, appending:
 - The environment context
 - The current task description
@@ -107,10 +165,14 @@ Execute TDD RED phase:
 
 Wait for completion. Check the result:
 - **Test fails** → proceed to GREEN
-- **Test already passes** → STOP. A passing test in the RED phase means either (a) the behavior is already implemented elsewhere — confirm with the user and skip the cycle for this requirement, or (b) the test isn't actually exercising the new behavior — rewrite it to be more specific before moving on. Do NOT silently fall through to REFACTOR.
+- **Test already passes** → STOP. A passing test in the RED phase means either (a) the behavior is already implemented elsewhere — confirm with the user and skip the cycle for this requirement, or (b) the test isn't actually exercising the new behavior — rewrite it to be more specific before moving on. Do NOT silently fall through to REFACTOR. (In Characterization mode a passing test means the opposite — it is the expected outcome. That mode does not run RED at all.)
 - **Build fails** → ask the agent to fix compilation, re-verify
 
 ### GREEN Phase
+
+In **Characterization** and **Refactoring** modes, GREEN writes the test that
+captures current behavior and verifies it passes immediately — no production
+code is written or changed in this phase.
 
 Spawn an Agent with the Green agent prompt, including:
 - The failing test file path and failure message from RED
