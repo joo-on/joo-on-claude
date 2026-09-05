@@ -10,15 +10,34 @@ A two-line statusline inspired by OMC. `setup` symlinks the script into `~/.clau
 so a plugin update applies to the HUD without reinstalling — run `hud remove` before
 uninstalling the plugin, or the link dangles.
 
-**Line 1** — session metadata:
+Three lines, one category each, so every number keeps a fixed position instead of
+sliding around as activity changes. Each stays in the 60-character range.
+
 ```
-~/w/mac-cfg (main) [Opus] ▓▓▓▓░░░░░░ 42% $1.23 ⚡23%(1h30m) 14:30
+~/w/mac-cfg (main) [Opus 5·xhigh] style:explanatory ▓▓▓▓░░░░░░ 42% 14:30
+up 3h | $18.80 | +1204/-318 | ⚡5h 100%(1h37m) 7d 41% | cache:91%
+tool:Read | agents:2[explore(45s),plan(2m)] | skill:handoff | 3/7
 ```
 
-**Line 2** — live activity (shown only when there is something to show):
-```
-tool:Read | agents:2[Explore(45s),Plan(2m)] | skill:brainstorm | 3/7
-```
+1. **Identity** — path, branch, model + reasoning effort, output style (hidden when
+   it is `default`), context bar, clock.
+2. **Budget** — session duration, estimated cost, lines changed, both rate-limit
+   windows, prompt-cache health. Drawn straight from the payload, so it survives a
+   transcript that cannot be parsed.
+3. **Activity** — last tool, running agents with elapsed time, last skill, todo
+   progress. Read from the transcript, and the line is omitted entirely when there
+   is nothing to show.
+
+Two fields are worth reacting to. The rate-limit countdown attaches to whichever
+window is more consumed, so `⚡5h 100%(1h37m)` in red means that window is spent
+and says when it returns. And `cache:cold` in red means the prompt cache lapsed —
+the next turn re-pays for the whole context at full price.
+
+`cost` is an estimate at API list price, not your bill; on a subscription it is a
+measure of intensity rather than money owed, and it resets on `/clear`.
+
+**`refreshInterval` is required** — see the `hud` skill. Without it the clock and
+the agent timers only advance when a message lands.
 
 ## Install
 

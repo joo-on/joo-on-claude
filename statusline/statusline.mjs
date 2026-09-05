@@ -3,8 +3,10 @@
  * joo-on-claude HUD — Claude Code Statusline
  *
  * OMC 수준의 풍부한 상태줄을 제공합니다.
- * Line 1: 경로, 브랜치, 모델, 컨텍스트 바, 비용, rate limit, 시계
- * Line 2: 마지막 도구, 에이전트 추적, 스킬, Todo 진행률
+ * 한 줄에 한 범주씩, 위에서 아래로:
+ *   1 정체성 — 경로, 브랜치, 모델·effort, output style, 컨텍스트 바, 시계
+ *   2 예산   — 경과, 비용, 변경 줄 수, rate limit(5h/7d), 프롬프트 캐시
+ *   3 활동   — 마지막 도구, 에이전트, 스킬, Todo  (보여줄 게 없으면 줄 자체를 생략)
  *
  * 의존성: Node.js 빌트인만 사용 (fs, child_process, os)
  */
@@ -80,29 +82,95 @@ function renderCost(cost) {
 }
 
 /**
- * Rate limit 표시 + 리셋까지 남은 시간
+ * 사용률에 따른 신호등 색
  */
-function renderRateLimit(rateLimit) {
-  if (!rateLimit?.five_hour) return '';
-  const { used_percentage, resets_at } = rateLimit.five_hour;
-  if (used_percentage == null) return '';
+function usageColor(pct) {
+  if (pct >= 80) return RED;
+  if (pct >= 50) return YELLOW;
+  return GREEN;
+}
 
-  const pct = Math.round(used_percentage);
-  let color = GREEN;
-  if (pct >= 80) color = RED;
-  else if (pct >= 50) color = YELLOW;
+/**
+ * epoch(초) → 남은 시간 문자열
+ */
+function untilReset(resetsAt) {
+  if (!resetsAt) return '';
+  const remaining = resetsAt * 1000 - Date.now();
+  if (remaining <= 0) return '';
+  const hours = Math.floor(remaining / 3600000);
+  const mins = Math.floor((remaining % 3600000) / 60000);
+  if (hours >= 24) return `(${Math.floor(hours / 24)}d${hours % 24}h)`;
+  return hours > 0 ? `(${hours}h${mins}m)` : `(${mins}m)`;
+}
 
-  let timeLeft = '';
-  if (resets_at) {
-    const remaining = resets_at * 1000 - Date.now();
-    if (remaining > 0) {
-      const hours = Math.floor(remaining / 3600000);
-      const mins = Math.floor((remaining % 3600000) / 60000);
-      timeLeft = hours > 0 ? `(${hours}h${mins}m)` : `(${mins}m)`;
-    }
-  }
+/**
+ * Rate limit — 5시간 창과 7일 창을 함께 표시한다.
+ *
+ * 리셋 카운트다운은 둘 중 더 많이 소진된 쪽에만 붙인다. 양쪽 모두에 붙이면
+ * 줄만 길어지고, 정작 급한 창이 어느 쪽인지 읽기 어려워진다.
+ */
+function renderRateLimits(rateLimits) {
+  if (!rateLimits) return '';
 
-  return `${color}⚡${pct}%${timeLeft}${RESET}`;
+  const windows = [
+    { label: '5h', data: rateLimits.five_hour },
+    { label: '7d', data: rateLimits.seven_day },
+  ].filter(w => w.data?.used_percentage != null);
+
+  if (windows.length === 0) return '';
+
+  const worst = windows.reduce((a, b) =>
+    b.data.used_percentage > a.data.used_percentage ? b : a);
+
+  const rendered = windows.map(w => {
+    const pct = Math.round(w.data.used_percentage);
+    const countdown = w === worst ? untilReset(w.data.resets_at) : '';
+    return `${usageColor(pct)}${w.label} ${pct}%${countdown}${RESET}`;
+  });
+
+  return `${DIM}⚡${RESET}${rendered.join(' ')}`;
+}
+
+/**
+ * 프롬프트 캐시 상태 — 캐시가 식으면 컨텍스트 전체를 다시 지불한다.
+ */
+function renderPromptCache(cache) {
+  if (!cache) return '';
+  if (cache.warm === false) return `${RED}cache:cold${RESET}`;
+  if (cache.hit_ratio == null) return `${DIM}cache:warm${RESET}`;
+  const pct = Math.round(cache.hit_ratio * 100);
+  const color = pct >= 80 ? GREEN : pct >= 50 ? YELLOW : RED;
+  return `${color}cache:${pct}%${RESET}`;
+}
+
+/**
+ * 세션 경과 시간. 1분 미만은 폭을 쓸 값어치가 없다.
+ */
+function renderDuration(ms) {
+  if (ms == null || ms < 60000) return '';
+  const mins = Math.floor(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  // 분이 0이면 떼어낸다 — "3h0m"보다 "3h"가 읽기 낫다.
+  const label = h > 0 ? (m > 0 ? `${h}h${m}m` : `${h}h`) : `${m}m`;
+  return `${DIM}up ${label}${RESET}`;
+}
+
+/**
+ * 이 세션이 건드린 코드량
+ */
+function renderLinesChanged(added, removed) {
+  if (!added && !removed) return '';
+  return `${GREEN}+${added || 0}${RESET}${DIM}/${RESET}${RED}-${removed || 0}${RESET}`;
+}
+
+/**
+ * output style — 기본값일 때는 표시하지 않는다.
+ */
+function renderOutputStyle(style) {
+  const name = style?.name;
+  if (!name || name === 'default') return '';
+  return `${MAGENTA}style:${name}${RESET}`;
 }
 
 /**
@@ -123,27 +191,23 @@ function getGitBranch(cwd) {
 /**
  * Line 1 조립
  */
-function buildLine1(input) {
+function buildIdentityLine(input) {
   const cwd = input.workspace?.current_dir || input.cwd || '';
   const model = input.model?.display_name || input.model?.id || '';
+  const effort = input.effort?.level;
   const ctxPct = input.context_window?.used_percentage;
-  const cost = input.cost?.total_cost_usd;
-  const rateLimit = input.rate_limits;
   const branch = getGitBranch(cwd);
   const clock = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
   const parts = [];
   parts.push(`${BLUE}${renderFishPath(cwd)}${RESET}`);
   if (branch) parts.push(`${YELLOW}(${branch})${RESET}`);
-  if (model) parts.push(`${CYAN}[${model}]${RESET}`);
+  if (model) parts.push(`${CYAN}[${model}${effort ? `·${effort}` : ''}]${RESET}`);
+
+  const styleStr = renderOutputStyle(input.output_style);
+  if (styleStr) parts.push(styleStr);
+
   if (ctxPct != null) parts.push(renderContextBar(ctxPct));
-
-  const costStr = renderCost(cost);
-  if (costStr) parts.push(costStr);
-
-  const rateLimitStr = renderRateLimit(rateLimit);
-  if (rateLimitStr) parts.push(rateLimitStr);
-
   parts.push(`${DIM}${clock}${RESET}`);
 
   return parts.join(' ');
@@ -316,7 +380,7 @@ function processEntry(entry, agentMap, latestTodos, result) {
 }
 
 // ============================================================================
-// Line 2 렌더 함수 (transcript 기반)
+// 예산 / 활동 줄
 // ============================================================================
 
 function shortAgentType(type) {
@@ -367,22 +431,33 @@ function renderTodos(todos) {
   return `${color}${completed}/${total}${RESET}`;
 }
 
-function buildLine2(transcript) {
-  const parts = [];
+const SEP = `${DIM} | ${RESET}`;
 
-  const toolStr = renderLastTool(transcript.lastToolName);
-  if (toolStr) parts.push(toolStr);
+/**
+ * 예산 줄 — 이 세션이 무엇을 쓰고 있나.
+ * stdin payload만 보므로 트랜스크립트 파싱보다 먼저, 그리고 그것과 무관하게 그려진다.
+ */
+function buildBudgetLine(input) {
+  return [
+    renderDuration(input.cost?.total_duration_ms),
+    renderCost(input.cost?.total_cost_usd),
+    renderLinesChanged(input.cost?.total_lines_added, input.cost?.total_lines_removed),
+    renderRateLimits(input.rate_limits),
+    renderPromptCache(input.prompt_cache),
+  ].filter(Boolean).join(SEP);
+}
 
-  const agentStr = renderAgents(transcript.agents);
-  if (agentStr) parts.push(agentStr);
-
-  const skillStr = renderLastSkill(transcript.lastSkill);
-  if (skillStr) parts.push(skillStr);
-
-  const todoStr = renderTodos(transcript.todos);
-  if (todoStr) parts.push(todoStr);
-
-  return parts.length > 0 ? parts.join(`${DIM} | ${RESET}`) : '';
+/**
+ * 활동 줄 — 지금 무슨 일이 벌어지고 있나.
+ * 보여줄 게 없으면 빈 문자열을 돌려주고, 호출부가 줄 자체를 생략한다.
+ */
+function buildActivityLine(transcript) {
+  return [
+    renderLastTool(transcript.lastToolName),
+    renderAgents(transcript.agents),
+    renderLastSkill(transcript.lastSkill),
+    renderTodos(transcript.todos),
+  ].filter(Boolean).join(SEP);
 }
 
 // ============================================================================
@@ -404,12 +479,15 @@ async function main() {
     input = { cwd: process.cwd() };
   }
 
-  process.stdout.write(buildLine1(input) + '\n');
+  process.stdout.write(buildIdentityLine(input) + '\n');
 
-  // 트랜스크립트 문제 때문에 Line 1까지 잃지 않도록 분리해서 감싼다.
+  const budget = buildBudgetLine(input);
+  if (budget) process.stdout.write(budget + '\n');
+
+  // 활동 줄만 트랜스크립트에 의존한다. 여기서 실패해도 위 두 줄은 이미 나갔다.
   try {
-    const line2 = buildLine2(parseTranscript(input.transcript_path));
-    if (line2) process.stdout.write(line2 + '\n');
+    const activity = buildActivityLine(parseTranscript(input.transcript_path));
+    if (activity) process.stdout.write(activity + '\n');
   } catch (err) {
     warn(`트랜스크립트 파싱 실패: ${err?.stack || err}`);
   }

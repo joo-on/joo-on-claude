@@ -40,11 +40,18 @@ Setup **symlinks** the plugin's `statusline/statusline.mjs` into `~/.claude/hud/
    {
      "statusLine": {
        "type": "command",
-       "command": "node ~/.claude/hud/statusline.mjs"
+       "command": "node ~/.claude/hud/statusline.mjs",
+       "refreshInterval": 5
      }
    }
    ```
    Overwrite any existing `statusLine` value. Preserve every other key in the file.
+
+   **`refreshInterval` is not optional for this HUD.** Without it the statusline
+   only re-renders on events, so the clock drifts while you read, and a running
+   agent's elapsed time freezes at whatever it was when the last message landed —
+   which defeats the point of showing it. 5 seconds is the recommended value;
+   the minimum Claude Code accepts is 1.
 
 4. **Check the Node version:**
    ```bash
